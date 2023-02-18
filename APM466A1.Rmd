@@ -1,0 +1,276 @@
+---
+title: "APM466A1"
+author: "Jacob Liu"
+date: "2023/2/5"
+output: word_document
+---
+
+
+
+```{r}
+install.packages("jrvFinance")
+library("jrvFinance")
+```
+
+```{r}
+bond= Selected_data
+```
+
+```{r}
+coupon_payment = bond$Coupon
+m_date = bond$`Maturity date`
+p_date = c("2023-01-16","2023-01-17","2023-01-18","2023-01-19","2023-01-20","2023-01-23","2023-01-24","2023-01-25","2023-01-26","2023-01-27")
+cp_matrix = matrix(c(bond$CP1,bond$CP2,bond$CP3,bond$CP4,bond$CP5,bond$CP6,bond$CP7,bond$CP8,bond$CP9,bond$CP10), nrow = 10, ncol = 10, byrow = TRUE)
+```
+
+```{r}
+ytm_matrix = matrix('numeric', nrow = 10, ncol = 10)
+for(i in c(1:10)){
+  for(j in c(1:10)){
+    ytm_matrix[j,i] = bond.yield(
+    settle = p_date[j],
+    mature = m_date[i],
+    coupon = coupon_payment[i],
+    freq = 2,
+    price= cp_matrix[j,i],
+    convention = c("30/360", "ACT/ACT", "ACT/360", "30/360E"),
+    comp.freq = 2,
+    redemption_value = 100
+)
+  }
+}
+```
+
+```{r}
+year_frac = matrix('numeric', nrow = 10, ncol = 10)
+for(i in c(1:10)){
+  for(j in c(1:10)){
+    year_frac[i,j] = yearFraction(
+    d1=p_date[i],
+    d2=m_date[j],
+    freq = 2,
+    convention = c("30/360", "ACT/ACT", "ACT/360", "30/360E")
+)
+  }
+}
+```
+
+```{r}
+yearFraction(
+    d1="2023-05-01",
+    d2="2023-06-01",
+    freq = 2,
+    convention = c("30/360", "ACT/ACT", "ACT/360", "30/360E")
+)
+```
+
+```{r}
+color = c("black","red", "orange", "yellow", "light green", "light blue", "dark blue", "purple", "dark red", "dark green")
+plot(year_frac[1,], ytm_matrix[1,],type = "l", main = "Yield Curve", ylab = "YTM", xlab = "Year",xlim = c(0,6), ylim = c(0.025,0.05), axes = FALSE, lwd=0.5, col=color[1])
+axis(1)
+axis(2, lwd.ticks = 0.5)
+for(i in c(1:9)){
+  lines(year_frac[i+1,], ytm_matrix[i+1,], type = "l", col = color[i+1], lwd=0.5)
+}
+
+legend("topright",pch=c(15,15), legend = c("2023-01-16","2023-01-17","2023-01-18","2023-01-19","2023-01-20","2023-01-23","2023-01-24","2023-01-25","2023-01-26","2023-01-27"),col = c("black","red", "orange", "yellow", "light green", "light blue", "dark blue", "purple", "dark red", "dark green"),cex = 0.55, lwd = 1)
+```
+```{r}
+dp = matrix('numeric', nrow = 10, ncol = 10)
+for(i in c(1:10)){
+  for(j in c(1:10)){
+    dp[j,i] = bond.TCF(
+    p_date[j],
+    m_date[i],
+    coupon_payment[i],
+    freq = 2,
+    redemption_value = 100)$accrued + cp_matrix[j,i]
+  }
+}
+```
+
+```{r}
+cf = list()
+for (i in 1:10){
+  cf = bond.TCF(p_date[i],
+    m_date[i],
+    coupon_payment[i],
+    freq = 2,
+    redemption_value = 100)$cf
+  print(cf)
+}
+cf1 = c(100.75)
+cf2 = c(1.125, 101.125)
+cf3 = c(0.75, 0.75, 100.75)
+cf4 = c(0.625, 0.625, 0.625, 100.625)
+cf5 = c(0.25, 0.25, 0.25, 0.25, 100.25)
+cf6 = c(0.75, 0.75, 0.75, 0.75, 0.75, 100.75)
+cf7 = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 100.5)
+cf8 = c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 100.5)
+cf9 = c(1.375, 1.375, 1.375, 1.375, 1.375, 1.375, 1.375, 1.375, 101.375)
+cf10 = c(1, 1, 1, 1, 1, 1, 1, 1, 1, 101)
+```
+```{r}
+spr_matrix = matrix('numeric', nrow = 10, ncol = 10)
+for (i in 1:10){
+  
+  t1 = as.numeric(year_frac[i,1])
+  f1 = function(x) {as.numeric(dp[i,1])-cf1[1]*(1+0.5*x)^(-2*t1)}
+  sp1 = uniroot(f1,c(0,1))$root
+
+  t2 = as.numeric(year_frac[i,2])
+  f2 = function(x) {as.numeric(dp[i,2])-cf2[1]*(1+0.5*sp1)^(-2*(t2-0.5*1))-cf2[2]*(1+0.5*x)^(-2*t2)}
+  sp2 = uniroot(f2,c(0,1))$root  
+
+  t3 = as.numeric(year_frac[i,3])
+  f3 = function(x) {as.numeric(dp[i,3])-cf3[1]*(1+0.5*sp1)^(-2*(t3-0.5*2))-cf3[2]*(1+0.5*sp2)^(-2*(t3-0.5*1))-cf3[3]*(1+0.5*x)^(-2*t3)}
+  sp3 = uniroot(f3,c(0,1))$root
+
+  t4 = as.numeric(year_frac[i,4])
+  f4 = function(x) {as.numeric(dp[i,4])-cf4[1]*(1+0.5*sp1)^(-2*(t4-0.5*3))-cf4[2]*(1+0.5*sp2)^(-2*(t4-0.5*2))-cf4[3]*(1+0.5*sp3)^(-2*(t4-0.5*1))-cf4[4]*(1+0.5*x)^(-2*t4)}
+  sp4 = uniroot(f4,c(0,1))$root    
+  
+  t5 = as.numeric(year_frac[i,5])
+  f5 = function(x) {as.numeric(dp[i,5])-cf5[1]*(1+0.5*sp1)^(-2*(t5-0.5*4))-cf5[2]*(1+0.5*sp2)^(-2*(t5-0.5*3))-cf5[3]*(1+0.5*sp3)^(-2*(t5-0.5*2))-cf5[4]*(1+0.5*sp4)^(-2*(t5-0.5*1))-cf5[5]*(1+0.5*x)^(-2*t5)}
+  sp5 = uniroot(f5,c(0,1))$root
+  
+  t6 = as.numeric(year_frac[i,6])
+  f6 = function(x) {as.numeric(dp[i,6])-cf6[1]*(1+0.5*sp1)^(-2*(t6-0.5*5))-cf6[2]*(1+0.5*sp2)^(-2*(t6-0.5*4))-cf6[3]*(1+0.5*sp3)^(-2*(t6-0.5*3))-cf6[4]*(1+0.5*sp4)^(-2*(t6-0.5*2))-cf6[5]*(1+0.5*sp5)^(-2*(t6-0.5*1))-cf6[6]*(1+0.5*x)^(-2*t6)}
+  sp6 = uniroot(f6,c(0,1))$root  
+  
+  t7 = as.numeric(year_frac[i,7])
+  f7 = function(x) {as.numeric(dp[i,7])-cf7[1]*(1+0.5*sp1)^(-2*(t7-0.5*6))-cf7[2]*(1+0.5*sp2)^(-2*(t7-0.5*5))-cf7[3]*(1+0.5*sp3)^(-2*(t7-0.5*4))-cf7[4]*(1+0.5*sp4)^(-2*(t7-0.5*3))-cf7[5]*(1+0.5*sp5)^(-2*(t7-0.5*2))-cf7[6]*(1+0.5*sp6)^(-2*(t7-0.5*1))-cf7[7]*(1+0.5*x)^(-2*t7)}
+  sp7 = uniroot(f7,c(0,1))$root  
+  
+  t8 = as.numeric(year_frac[i,8])
+  f8 = function(x) {as.numeric(dp[i,8])-cf8[1]*(1+0.5*sp1)^(-2*(t8-0.5*7))-cf8[2]*(1+0.5*sp2)^(-2*(t8-0.5*6))-cf8[3]*(1+0.5*sp3)^(-2*(t8-0.5*5))-cf8[4]*(1+0.5*sp4)^(-2*(t8-0.5*4))-cf8[5]*(1+0.5*sp5)^(-2*(t8-0.5*3))-cf8[6]*(1+0.5*sp6)^(-2*(t8-0.5*2))-cf8[7]*(1+0.5*sp7)^(-2*(t8-0.5*1))-cf8[8]*(1+0.5*x)^(-2*t8)}
+  sp8 = uniroot(f8,c(0,1))$root  
+  
+  t9 = as.numeric(year_frac[i,9])
+  f9 = function(x) {as.numeric(dp[i,9])-cf9[1]*(1+0.5*sp1)^(-2*(t9-0.5*8))-cf9[2]*(1+0.5*sp2)^(-2*(t9-0.5*7))-cf9[3]*(1+0.5*sp3)^(-2*(t9-0.5*6))-cf9[4]*(1+0.5*sp4)^(-2*(t9-0.5*5))-cf9[5]*(1+0.5*sp5)^(-2*(t9-0.5*4))-cf9[6]*(1+0.5*sp6)^(-2*(t9-0.5*3))-cf9[7]*(1+0.5*sp7)^(-2*(t9-0.5*2))-cf9[8]*(1+0.5*sp8)^(-2*(t9-0.5*1))-cf9[9]*(1+0.5*x)^(-2*t9)}
+  sp9 = uniroot(f9,c(0,1))$root 
+  
+  t10 = as.numeric(year_frac[i,10])
+  f10 = function(x) {as.numeric(dp[i,10])-cf10[1]*(1+0.5*sp1)^(-2*(t10-0.5*9))-cf10[2]*(1+0.5*sp2)^(-2*(t10-0.5*8))-cf10[3]*(1+0.5*sp3)^(-2*(t10-0.5*7))-cf10[4]*(1+0.5*sp4)^(-2*(t10-0.5*6))-cf10[5]*(1+0.5*sp5)^(-2*(t10-0.5*5))-cf10[6]*(1+0.5*sp6)^(-2*(t10-0.5*4))-cf10[7]*(1+0.5*sp7)^(-2*(t10-0.5*3))-cf10[8]*(1+0.5*sp8)^(-2*(t10-0.5*2))-cf10[9]*(1+0.5*sp9)^(-2*(t10-0.5*1))-cf10[10]*(1+0.5*x)^(-2*t10)}
+  sp10 = uniroot(f10,c(0,1))$root 
+  
+  r=rbind(sp1,sp2,sp3,sp4,sp5,sp6,sp7,sp8,sp9,sp10)
+  spr_matrix[i,]=r
+}
+```
+
+```{r}
+color = c("black","red", "orange", "yellow", "light green", "light blue", "dark blue", "purple", "dark red", "dark green")
+plot(year_frac[1,], spr_matrix[1,],type = "l", main = "Spot Rate Curve", ylab = "Spot Rate", xlab = "Year",xlim = c(0,6), ylim = c(0.025,0.05), axes = FALSE, lwd=0.5, col=color[1])
+axis(1)
+axis(2, lwd.ticks = 0.5)
+for(i in c(1:9)){
+  lines(year_frac[i+1,], spr_matrix[i+1,], type = "l", col = color[i+1], lwd=0.5)
+}
+
+legend("topright",pch=c(15,15), legend = c("2023-01-16","2023-01-17","2023-01-18","2023-01-19","2023-01-20","2023-01-23","2023-01-24","2023-01-25","2023-01-26","2023-01-27"),col = c("black","red", "orange", "yellow", "light green", "light blue", "dark blue", "purple", "dark red", "dark green"),cex = 0.55, lwd = 1)
+```
+
+```{r}
+spr_matirx1 = matrix('numeric', nrow = 10, ncol = 10)
+for (i in 1:10){
+  t1 = as.numeric(year_frac[i,1])
+  sp1 = (log(as.numeric(dp[i,1])/100.75)/-(t1))
+  r=rbind(sp1)
+  spr_matirx1[i,]=r
+}
+```
+
+```{r}
+year_frac1 = year_frac [,-c(1,2)]
+```
+
+```{r}
+fwrm = matrix('numeric', nrow = 10, ncol = 8)
+for (i in 3:10){
+  for (j in 1:10){
+  t2 = as.numeric(year_frac[j,i])
+  t1 = as.numeric(year_frac[j,2])
+  r2 = as.numeric(spr_matrix[j,i])
+  r1 = as.numeric(spr_matrix[j,2])
+  fwrm[j,i-2] = (r2*t2-r1*t1)/(t2-t1)
+  }
+}
+```
+
+```{r}
+color = c("black","red", "orange", "yellow", "light green", "light blue", "dark blue", "purple", "dark red", "dark green")
+plot((as.numeric(year_frac1[1,])-1), fwrm[1,],type = "l", main = "1-Year Forward Curve", ylab = "1-Year Forward Rate", xlab = "Year",xlim = c(0,5), ylim = c(0.02,0.04), axes = FALSE, lwd=0.5, col=color[1])
+axis(1)
+axis(2, lwd.ticks = 0.5)
+for(i in c(1:7)){
+  lines((as.numeric(year_frac1[i+1,])-1), fwrm[i+1,], type = "l", col = color[i+1], lwd=0.5)
+}
+
+legend("topright",pch=c(15,15), legend = c("2023-01-16","2023-01-17","2023-01-18","2023-01-19","2023-01-20","2023-01-23","2023-01-24","2023-01-25","2023-01-26","2023-01-27"),col = c("black","red", "orange", "yellow", "light green", "light blue", "dark blue", "purple", "dark red", "dark green"),cex = 0.55, lwd = 1)
+```
+```{r}
+cytm = matrix('numeric', nrow = 9, ncol = 5)
+for (i in c(1:5)){
+  for (j in 1:9){
+  yr1 = as.numeric(ytm_matrix[j+1,2*i])
+  yr2 = as.numeric(ytm_matrix[j,2*i])
+  cytm[j,i] =as.numeric(log(yr1/yr2))
+  }
+}
+```
+
+```{r}
+cytm = as.data.frame(cytm)
+cytm$V1 = as.numeric(cytm$V1)
+cytm$V2 = as.numeric(cytm$V2)
+cytm$V3 = as.numeric(cytm$V3)
+cytm$V4 = as.numeric(cytm$V4)
+cytm$V5 = as.numeric(cytm$V5)
+```
+
+```{r}
+cov_m1 = cov(cytm)
+cov_m1
+```
+```{r}
+cfrwm = matrix('numeric', nrow = 9, ncol = 4)
+for (i in c(1:4)){
+  for (j in 1:9){
+  fr1 = as.numeric(fwrm[j+1,2*i])
+  fr2 = as.numeric(fwrm[j,2*i])
+  cfrwm[j,i] =as.numeric(log(fr1/fr2))
+  }
+}
+cfrwm = as.data.frame(cfrwm)
+cfrwm$V1 = as.numeric(cfrwm$V1)
+cfrwm$V2 = as.numeric(cfrwm$V2)
+cfrwm$V3 = as.numeric(cfrwm$V3)
+cfrwm$V4 = as.numeric(cfrwm$V4)
+cov_m2 = cov(cfrwm)
+cov_m2
+```
+```{r}
+espace_y = eigen(cov_m1) 
+espace_y$values
+espace_y$vectors
+```
+```{r}
+espace_f = eigen(cov_m2) 
+espace_f$values
+espace_f$vectors
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
